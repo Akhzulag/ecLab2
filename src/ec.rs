@@ -1,11 +1,11 @@
 #![allow(unused)]
 
+use crate::bigint_utils::FromHex;
 use num_bigint::BigInt as bui;
 use num_bigint::RandBigInt;
 use num_integer::Integer;
 use num_traits::{One, Zero};
 use std::{convert, str::FromStr};
-
 #[derive(Clone, Debug)]
 pub struct Point {
     x: Option<bui>,
@@ -17,6 +17,8 @@ pub struct EC {
     a: bui,
     b: bui,
     q: bui,
+    n: Option<bui>,
+    p: Option<Point>,
 }
 
 impl Point {
@@ -34,11 +36,34 @@ impl Point {
         }
         false
     }
+
+    pub fn get_xy(&self, ec: &EC) -> (bui, bui) {
+        match self.z.as_ref() {
+            Some(z) => {
+                let point = ec.convert(self).unwrap();
+                (point.x.unwrap(), point.y.unwrap())
+            }
+            None => (
+                self.x.as_ref().unwrap().clone(),
+                self.y.as_ref().unwrap().clone(),
+            ),
+        }
+    }
 }
 
 impl EC {
-    pub fn new(a: bui, b: bui, q: bui) -> Self {
-        Self { a, b, q }
+    pub fn new(a: bui, b: bui, q: bui, n: Option<bui>, p: Option<Point>) -> Self {
+        Self { a, b, q, n, p }
+    }
+
+    pub fn get_ref_q(&self) -> &bui {
+        &self.q
+    }
+
+    pub fn get_ref_p(&self) -> &Point {
+        self.p
+            .as_ref()
+            .expect("eliptic curve does not contain generator point")
     }
 
     pub fn on_curve(&self, p: &Point) -> bool {
@@ -145,7 +170,7 @@ impl EC {
         }
     }
 
-    pub fn scalar_mul(&self, p: &Point, k: bui) -> Point {
+    pub fn scalar_mul(&self, p: &Point, k: &bui) -> Point {
         let mut r_0 = Point::new(bui::zero(), bui::one(), Some(bui::zero()));
         let mut r_1 = p.clone();
         let bitstring = format!("{:b}", k);
@@ -177,6 +202,11 @@ impl EC {
                 "115792089210356248762697446949407573530086143415290314195533631308867097853951",
             )
             .unwrap(),
+            Some(bui::from_str(
+                "115792089210356248762697446949407573529996955224135760342422259061068512044369",
+            )
+            .unwrap()),
+            None,
         );
 
         let mut rng = rand::thread_rng();
@@ -312,7 +342,7 @@ mod tests {
             .unwrap();
 
             let o_e = Point::new(bui::zero(), bui::one(), Some(bui::zero()));
-            let res = ec.scalar_mul(&p, n);
+            let res = ec.scalar_mul(&p, ec.n.as_ref().unwrap());
             assert!(res.cmp(&o_e));
         }
     }
