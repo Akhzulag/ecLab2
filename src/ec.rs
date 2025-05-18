@@ -13,12 +13,13 @@ pub struct Point {
     z: Option<bui>,
 }
 
+#[derive(Clone, Debug)]
 pub struct EC {
     a: bui,
     b: bui,
     q: bui,
-    n: Option<bui>,
-    p: Option<Point>,
+    n: Option<bui>,   // prime point of cycle group point
+    p: Option<Point>, // base Point
 }
 
 impl Point {
@@ -30,7 +31,7 @@ impl Point {
         }
     }
 
-    fn cmp(&self, p: &Point) -> bool {
+    pub fn cmp(&self, p: &Point) -> bool {
         if self.x == p.x && self.y == p.y && self.z == p.z {
             return true;
         }
@@ -58,6 +59,10 @@ impl EC {
 
     pub fn get_ref_q(&self) -> &bui {
         &self.q
+    }
+
+    pub fn get_ref_n(&self) -> &bui {
+        self.n.as_ref().expect("elipcit curve does not contain n")
     }
 
     pub fn get_ref_p(&self) -> &Point {
@@ -306,7 +311,7 @@ mod tests {
     fn test_ec_on_curve() {
         for _ in 0..1000 {
             let (p, ec) = EC::gen_point_p256();
-            println!("{:?}", p);
+            // println!("{:?}", p);
             assert!(ec.on_curve(&p));
         }
     }
@@ -316,7 +321,7 @@ mod tests {
         for _ in 0..1000 {
             let (p, ec) = EC::gen_point_p256();
             let p = ec.double(&p).unwrap();
-            println!("{:?}", p);
+            // println!("{:?}", p);
             assert!(ec.on_curve(&p));
         }
     }
@@ -336,11 +341,9 @@ mod tests {
     fn test_scalar_mul() {
         for _ in 0..100 {
             let (p, ec) = EC::gen_point_p256();
-            let n = bui::from_str(
-                "115792089210356248762697446949407573529996955224135760342422259061068512044369",
-            )
-            .unwrap();
-
+            let n =
+                bui::from_hex("ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551")
+                    .unwrap();
             let o_e = Point::new(bui::zero(), bui::one(), Some(bui::zero()));
             let res = ec.scalar_mul(&p, ec.n.as_ref().unwrap());
             assert!(res.cmp(&o_e));
